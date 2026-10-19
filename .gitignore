@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+credentials/credentials.json
+credentials/token.json
+.venv/
+venv/
+bot.log
+start_bot.vbs
