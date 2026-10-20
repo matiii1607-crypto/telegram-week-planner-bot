@@ -74,7 +74,7 @@ Completá `.env` con:
 - `GOOGLE_CALENDAR_ID`: dejalo en `primary` salvo que quieras usar otro
   calendario específico.
 
-## 6. Ejecutar el bot
+## 6. Ejecutar el bot localmente
 
 ```bash
 python bot.py
@@ -82,6 +82,50 @@ python bot.py
 
 La primera ejecución te va a abrir el navegador para autorizar Google
 Calendar. Una vez autorizado, hablale al bot en Telegram.
+
+## 7. Dejarlo corriendo 24/7 en la nube (Render, gratis)
+
+Para que el bot funcione aunque tu PC esté apagada, está desplegado en
+[Render](https://render.com) (plan gratuito, sin tarjeta):
+
+1. Subí este repo a GitHub (privado está bien).
+2. En Render: **New → Web Service** → conectá el repo.
+3. Build command: `pip install -r requirements.txt`. Start command:
+   `python bot.py`.
+4. Plan: **Free** ($0/mes).
+5. Variables de entorno: cargá las mismas de tu `.env` **menos**
+   `RENDER_API_KEY`/`RENDER_SERVICE_ID` (esas son solo para tu PC), más
+   `GOOGLE_TOKEN_JSON` con el contenido completo de
+   `credentials/token.json` (una sola línea, pegalo tal cual) — Render no
+   tiene navegador para hacer el login interactivo, así que usa este token
+   ya generado en tu PC.
+
+El plan Free de Render "duerme" el servicio a los 15 minutos sin tráfico, por
+eso además hay un monitor gratuito en [UptimeRobot](https://uptimerobot.com)
+pegándole a la URL pública del servicio (`https://TU-SERVICIO.onrender.com`,
+que responde "OK") cada 5 minutos para mantenerlo despierto.
+
+### El límite de 7 días de Google y cómo se resuelve
+
+La app de Google Calendar quedó en estado **"Prueba"** (no se publicó a
+producción porque eso exige un dominio propio con política de privacidad —
+innecesario para un bot personal). En ese estado, Google hace expirar el
+`refresh_token` a los 7 días sí o sí.
+
+Para que esto no rompa el bot, `refresh_google_token.py` renueva el acceso
+localmente (abre el navegador en tu PC, pide confirmar una vez) y sube el
+token nuevo a Render automáticamente vía su API, disparando un redeploy.
+Un script en la carpeta de Inicio de Windows (`check_token_refresh.vbs`,
+copiado manualmente ahí, no versionado) lo corre en cada inicio de sesión;
+el propio script decide si ya hace falta renovar (cada ~5 días) o no hace
+nada. Necesita en tu `.env` local:
+
+- `RENDER_API_KEY`: Render → Account Settings → API Keys.
+- `RENDER_SERVICE_ID`: el `srv-xxxxx` de la URL del servicio en el dashboard.
+
+Si alguna vez tu PC está apagada más de 5-7 días seguidos sin iniciar
+sesión, el bot va a dejar de poder acceder al calendario hasta que corras
+`python refresh_google_token.py --force` una vez.
 
 ## Notas de seguridad
 
@@ -96,9 +140,13 @@ Calendar. Una vez autorizado, hablale al bot en Telegram.
 
 ## Estructura del proyecto
 
-- `bot.py` – handlers de Telegram y arranque del bot.
+- `bot.py` – handlers de Telegram, arranque del bot y servidor de salud
+  (para que Render no lo duerma).
 - `ai_agent.py` – lógica conversacional: historial por chat y function
   calling de Gemini para operar el calendario.
 - `calendar_service.py` – wrapper de la API de Google Calendar (OAuth,
-  listar/crear/editar/borrar eventos).
+  listar/crear/editar/borrar eventos; soporta token vía archivo local o vía
+  la variable `GOOGLE_TOKEN_JSON` para despliegues sin navegador).
 - `config.py` – carga de variables de entorno.
+- `refresh_google_token.py` – mantenimiento: renueva el acceso a Google
+  Calendar y lo sube a Render (ver sección 7).

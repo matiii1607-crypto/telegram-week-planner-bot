@@ -7,3 +7,5 @@ credentials/token.json
 venv/
 bot.log
 start_bot.vbs
+check_token_refresh.vbs
+credentials/.last_refresh
